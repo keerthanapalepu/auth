@@ -1,28 +1,16 @@
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 import { google } from "googleapis";
 
 export const createTransporter = async() => {
-    const oAuth2Client = new google.auth.OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        process.env.REDIRECT_URI
-    )
-    oAuth2Client.setCredentials({
-        refresh_token: process.env.REFRESH_TOKEN
-    })
-    const accessToken = await oAuth2Client.getAccessToken()
+
     return nodemailer.createTransport({
-        service: "gmail",
+        service: "Gmail",
         auth: {
-            type: "OAuth2",
-            user: process.env.EMAIL,
-            clientId: process.env.CLIENT_ID,
-            clientSecret: process.env.CLIENT_SECRET,
-            refreshToken: process.env.REFRESH_TOKEN,
-            accessToken
-        }
-    })
-}
+            user: "keerthanapalepu0810@gmail.com",
+            pass: process.env.EMAIL_PASSWORD
+        },
+    });
+};
 
 export const emailVerificationTemplate = (firstName, verificationOtp) => {
     return `<!DOCTYPE html>
@@ -44,8 +32,8 @@ export const emailVerificationTemplate = (firstName, verificationOtp) => {
     </body>
     
     </html>
-    `
-}
+    `;
+};
 export const forgotPassword = (firstName) => {
     return `<!DOCTYPE html>
   <html lang="en">
@@ -65,5 +53,5 @@ export const forgotPassword = (firstName) => {
   </body>
   
   </html>
-  `
-}
+  `;
+};

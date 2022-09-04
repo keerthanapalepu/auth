@@ -1,33 +1,34 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import UserModal from '../models/user.js';
-import VerificationOtp from '../models/verificationOtp.js';
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import UserModal from "../models/user.js";
+import VerificationOtp from "../models/verificationOtp.js";
 import otpGenerator from "otp-generator";
-import validator from 'validator';
-import mongoose from 'mongoose';
+import validator from "validator";
+import mongoose from "mongoose";
 import {
     createTransporter,
     emailVerificationTemplate,
-    forgotPassword
+    forgotPassword,
 } from "../utils/mail.js";
-const secret = 'test';
 
 export const Login = async(req, res) => {
     const { email, password } = req.body;
 
     try {
         const oldUser = await UserModal.findOne({ email });
-        if (!oldUser) return res.status(404).json({ message: "User doesn't exist" });
+        if (!oldUser)
+            return res.status(404).json({ message: "User doesn't exist" });
         const isPasswordCorrect = await bcrypt.compare(password, oldUser.password);
-        if (!isPasswordCorrect) return res.status(400).json({ message: "Invalid credentials" });
-        const token = jwt.sign({ email: oldUser.email, id: oldUser._id }, secret, { expiresIn: "1h" });
-        res.status(200).send({ result: oldUser, token });
+        if (!isPasswordCorrect)
+            return res.status(400).json({ message: "Invalid credentials" });
+        const token = jwt.sign({ email: oldUser.email, id: oldUser._id },
+            process.env.JWT_SECRET, { expiresIn: "1h" }
+        );
+        res.status(200).send({ user: { email: oldUser.email, id: oldUser._id, firstName: oldUser.firstName, lastName: oldUser.lastName }, token });
     } catch (err) {
         res.status(500).send({ message: "Something went wrong" });
     }
 };
-
-
 
 export const register = async(req, res) => {
     const { email, password, firstName, lastName } = req.body;
@@ -46,7 +47,9 @@ export const register = async(req, res) => {
         if (!isValidFirstName) {
             return res.status(400).send({ error: "Invalid First Name!" });
         }
-        const isValidLastName = !validator.isEmpty(lastName, { ignore_whitespace: true });
+        const isValidLastName = !validator.isEmpty(lastName, {
+            ignore_whitespace: true,
+        });
         if (!isValidLastName) {
             return res.status(400).send({ error: "Invalid Last Name!" });
         }
@@ -57,7 +60,7 @@ export const register = async(req, res) => {
             email,
             firstName,
             lastName,
-            password: hashedPassword
+            password: hashedPassword,
         });
         await newUser.save();
 
@@ -84,7 +87,7 @@ export const register = async(req, res) => {
         const transporter = await createTransporter();
         const mail = await transporter.sendMail(mailOptions);
 
-        res.status(201).send({ user: newUser });
+        res.status(201).send({ user: { email: newUser.email, id: newUser._id, firstName: newUser.firstName, lastName: newUser.lastName } });
     } catch (error) {
         console.log(error);
         res.status(400).send({ error: "Invalid email or password" });
@@ -98,23 +101,30 @@ export const verifyEmail = async(req, res) => {
         const dbVerificationOtp = await VerificationOtp.findOne({
             owner: userId,
         });
-        const isOTPCorrect = await bcrypt.compare(userVerificationOtp, dbVerificationOtp.verificationOtp);
+        const isOTPCorrect = await bcrypt.compare(
+            userVerificationOtp,
+            dbVerificationOtp.verificationOtp
+        );
         if (!isOTPCorrect) return res.status(400).json({ message: "Invalid OTP" });
 
         await VerificationOtp.findByIdAndDelete(dbVerificationOtp._id);
 
-        const token = jwt.sign({ email: newUser.email, id: newUser._id }, secret, { expiresIn: "1h" });
-        res.status(200).send({ result: newUser, token });
+        const token = jwt.sign({ email: newUser.email, id: newUser._id },
+            process.env.JWT_SECRET, { expiresIn: "1h" }
+        );
+        res.status(200).send({ user: { email: newUser.email, id: newUser._id, firstName: newUser.firstName, lastName: newUser.lastName }, token });
     } catch (error) {
         res.status(400).send({ error: "Invalid User" });
     }
 };
 
-export const forgotPassword = async(req, res) => {
+export const resetPassword = async(req, res) => {
     const { email } = req.body;
+
     try {
         const oldUser = await UserModal.findOne({ email });
-        if (!oldUser) return res.status(404).json({ message: "User doesn't exist" });
+        if (!oldUser)
+            return res.status(404).json({ message: "User doesn't exist" });
         const mailOptions = {
             from: `Overpay <${process.env.Email}>`,
             to: oldUser.email,
